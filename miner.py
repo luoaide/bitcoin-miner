@@ -1,17 +1,6 @@
-### once I try all the nonces for a give config, I can update the time or update
-### the transactions (and therefore the Merkle Root Hash)... that's all up to me
-### and my strategy, I guess
-
-# All transactions, including the coinbase transaction, are encoded into blocks in binary raw transaction format.
-
-# The raw transaction format is hashed to create the transaction identifier (txid). From these txids, the merkle tree is constructed by pairing each txid with one other txid and then hashing them together. If there are an odd number of txids, the txid without a partner is hashed with a copy of itself.
-
-# Resource on Binary Raw Transactions can be found here: https://developer.bitcoin.org/reference/transactions.html
-
 from rpc import BitcoinRPC
 from block794700 import testBlock
 
-from collections import deque
 import hashlib
 import struct
 import binascii
@@ -62,14 +51,7 @@ class Miner():
         byteList.reverse()
         return bytes(byteList)
     
-    def _createCoinbaseTx(self, height, value):
-        if self.test:
-            testCoinbaseTx = {
-                "data": "0",
-                "txid": testBlock["transactions"][0]["txid"]
-            }
-            return testCoinbaseTx
-            
+    def _createCoinbaseTx(self, height, value, testingSolo=False):
         # RESOURCE: https://developer.bitcoin.org/reference/transactions.html
         # ---------------------------
         # |-- 32 bytes: Transaction Hash (all bits are zero)
@@ -111,14 +93,15 @@ class Miner():
         tx_in_count = "01" # just a binary 1
         output_txid = bytes.hex(struct.pack('<4Q', 0, 0, 0, 0)) # 32 bytes of 0s
         output_index = "FFFFFFFF"
-        in_script_bytes = "50" # number of bytes in the opcode + height field + the message field = 1 + 3 + 76 = 80
+        in_script_length = 4 + len(self.config["coinbase_message"])//2
+        in_script_bytes = self._makeCompactSizeUint(in_script_length) # number of bytes in the opcode + height field + the message field
         # Start of the coinbase message: push first three bytes (instruction is 0x03 followed by three bytes, little endian, of height)
         push_opcode = "03"
         little_endian_height = bytes.hex(struct.pack('<I', height))[:6] #only want first three bytes
         message = self.config["coinbase_message"] # 87 bytes.
         sequence = "00000000"
         tx_out_count = "01"
-        satoshis = bytes.hex(struct.pack('<q', value))
+        satoshis = bytes.hex(struct.pack('<q', int(value)))
         out_script_bytes = "19" # 25 bytes
         pubkey_script = "76" + "a9" + "14" + self.config["pubkey_hash"] + "88" + "ac"
         lock_time = "00000000"
@@ -141,20 +124,30 @@ class Miner():
 
         generatedTx = generatedTx.lower()
         rawTransactionFormat = binascii.unhexlify(generatedTx) #transform the string to bytes
-        coinbaseTxid = bytearray(self._doubleSHA(rawTransactionFormat))
-        coinbaseTxid.reverse()
-        coinbaseTxid = coinbaseTxid.hex()
+        coinbaseTxid = self._reverseByteOrder(self._doubleSHA(rawTransactionFormat)).hex() #hash & put into little endian format
 
         # add this transaction in the same format as the others... i.e. as a string (of hex values)
         coinbaseTx = {
             "data": generatedTx,
             "txid": coinbaseTxid
         }
+        if self.test:
+            if testingSolo:
+                return coinbaseTx["data"]
+            
+            testCoinbaseTx = {
+                "data": "0",
+                "txid": testBlock["transactions"][0]["txid"]
+            }
+            return testCoinbaseTx
+        
         return coinbaseTx
         
     def _computeMerkleRoot(self, txs):
         # input: list of transactions as json
         # output: Merkle Root for this block
+
+        # The raw transaction format is hashed to create the transaction identifier (txid). From these txids, the merkle tree is constructed by pairing each txid with one other txid and then hashing them together. If there are an odd number of txids, the txid without a partner is hashed with a copy of itself.
         length = len(txs)
         merkleroot = txs[0]["txid"]
         

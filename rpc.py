@@ -1,6 +1,6 @@
 # Performs Remote Procedure Calls to the Bitcoin Core
 
-import requests
+#import requests
 import base64
 import json
 

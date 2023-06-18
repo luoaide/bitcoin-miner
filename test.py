@@ -1,14 +1,9 @@
-from multiprocessing import Process
-import time
-import binascii
-import hashlib
-
-from configuration import CONFIGURATION as config
+from configuration import configuration
 from miner import Miner
 from block794700 import testBlock
 
 if __name__ == '__main__':
-    testMiner = Miner("Test Miner", config, 3697889648, 3697889649, test=True)
+    testMiner = Miner("Test Miner", configuration, 3697889648, 3697889649, test=True)
 
     print("Performing tests...")
 
@@ -26,6 +21,14 @@ if __name__ == '__main__':
     else:
         print("(-) failed compactSize uint Production Test")
 
+    # Test Coinbase Transaction Formation
+    expectedCoinbaseTx = "02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff50033f210c50726573656e74206c6f636174696f6e2c206d757369632062616e6420746f6c657261626c652c20676f6f6420616d6269616e63652c203372642c20326e642074696d6520686572652e2e2e00000000016051a226000000001976a9146e751487dfb69c1187853da2e91254d7131c02c088ac00000000"
+    producedCoinbaseTx = testMiner._createCoinbaseTx(794943, 648171872, True)
+    if expectedCoinbaseTx == producedCoinbaseTx:
+        print("(+) passed Coinbase TX Formation Test")
+    else:
+        print("(-) failed Coinbase TX Formation Test")
+    
     # Test Merkle Root Calculation
     transactions = testBlock["transactions"]
     (le_version, calculatedMerkle) = testMiner._computeMerkleRoot(transactions)

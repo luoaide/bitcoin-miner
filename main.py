@@ -1,7 +1,7 @@
 from multiprocessing import Process
 import time
 
-from configuration import CONFIGURATION
+from configuration import configuration
 from miner import Miner
 
 def startNewMiner(idNum, config):
@@ -20,11 +20,11 @@ def startNewMiner(idNum, config):
 if __name__ == '__main__':
 
     threads = []
-    for thread_id in range(0, CONFIGURATION["number_threads"]):
-        process = Process(target=startNewMiner, args=(thread_id, CONFIGURATION))
+    for thread_id in range(0, configuration["number_threads"]):
+        process = Process(target=startNewMiner, args=(thread_id, configuration))
         process.start()
         threads.append(process)
-        time.sleep(CONFIGURATION["thread_delay_time"])
+        time.sleep(configuration["thread_delay_time"])
 
     # The thread will only join with the parent once it has finished (i.e. is killed)
     for thread in threads:
